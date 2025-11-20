@@ -1,0 +1,6 @@
+selected resource name:		pipeline_incr_apparence
+selected resource type:		pipeline
+factory name:			PapusDataFactoryDefault
+factory location:		canadacentral
+subscription id:		605d5001-bc80-4cb8-b7ba-4c6e8d33d1a1
+time of download (UTC):		Thu, 20 Nov 2025 19:17:31 GMT

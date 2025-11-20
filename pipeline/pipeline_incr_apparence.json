@@ -1,0 +1,266 @@
+{
+    "name": "pipeline_incr_apparence",
+    "properties": {
+        "activities": [
+            {
+                "name": "GetDateApp",
+                "type": "Lookup",
+                "dependsOn": [
+                    {
+                        "activity": "Truncate_AppearanceS_table",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "AzureSqlSource",
+                        "sqlReaderQuery": "select WatermarkValue  from ctrl_table_watermarks where TableName ='appearances'",
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "dataset": {
+                        "referenceName": "DS_test_database",
+                        "type": "DatasetReference"
+                    }
+                }
+            },
+            {
+                "name": "LahamnToAppearance_S",
+                "type": "Copy",
+                "dependsOn": [
+                    {
+                        "activity": "GetDateApp",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "AzureSqlSource",
+                        "sqlReaderQuery": {
+                            "value": "SELECT yearID AS yearid, teamID\n      ,lgID\n      ,playerID\n      ,G_all\n      ,G_batting\n      ,G_defense\n      ,G_p\n      ,G_c\n      ,G_1b\n      ,G_2b\n      ,G_3b\n      ,G_ss\n      ,G_lf \n      ,G_cf\n      ,G_rf\n      ,G_of\n      ,G_dh\n      ,G_ph\n      ,G_pr\n      ,dateInscrip FROM dbo.appearances\nWHERE dateInscrip > '@{activity('GetDateApp').output.firstRow.WatermarkValue}'",
+                            "type": "Expression"
+                        },
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "sink": {
+                        "type": "AzureSqlSink",
+                        "writeBehavior": "insert",
+                        "sqlWriterUseTableLock": false,
+                        "tableOption": "autoCreate",
+                        "disableMetricsCollection": false
+                    },
+                    "enableStaging": false,
+                    "translator": {
+                        "type": "TabularTranslator",
+                        "typeConversion": true,
+                        "typeConversionSettings": {
+                            "allowDataTruncation": true,
+                            "treatBooleanAsNumber": false
+                        }
+                    }
+                },
+                "inputs": [
+                    {
+                        "referenceName": "DS_lahman",
+                        "type": "DatasetReference"
+                    }
+                ],
+                "outputs": [
+                    {
+                        "referenceName": "DS_test_database",
+                        "type": "DatasetReference"
+                    }
+                ]
+            },
+            {
+                "name": "staggingToHistory",
+                "type": "Copy",
+                "dependsOn": [
+                    {
+                        "activity": "LahamnToAppearance_S",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "AzureSqlSource",
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "sink": {
+                        "type": "AzureSqlSink",
+                        "writeBehavior": "upsert",
+                        "upsertSettings": {
+                            "useTempDB": true,
+                            "keys": [
+                                "yearid",
+                                "teamID",
+                                "playerID"
+                            ]
+                        },
+                        "sqlWriterUseTableLock": false,
+                        "disableMetricsCollection": false
+                    },
+                    "enableStaging": false,
+                    "translator": {
+                        "type": "TabularTranslator",
+                        "typeConversion": true,
+                        "typeConversionSettings": {
+                            "allowDataTruncation": true,
+                            "treatBooleanAsNumber": false
+                        }
+                    }
+                },
+                "inputs": [
+                    {
+                        "referenceName": "DS_test_database",
+                        "type": "DatasetReference"
+                    }
+                ],
+                "outputs": [
+                    {
+                        "referenceName": "DS_test_DataBase_destination",
+                        "type": "DatasetReference"
+                    }
+                ]
+            },
+            {
+                "name": "GetMaxValueUpdatedDate",
+                "description": "",
+                "type": "Lookup",
+                "dependsOn": [
+                    {
+                        "activity": "staggingToHistory",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "AzureSqlSource",
+                        "sqlReaderQuery": "select max(dateInscrip) as lastUpdated from appearances_H",
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "dataset": {
+                        "referenceName": "DS_test_database",
+                        "type": "DatasetReference"
+                    }
+                }
+            },
+            {
+                "name": "UpdatedLastestWaterMarkValue",
+                "type": "SqlServerStoredProcedure",
+                "dependsOn": [
+                    {
+                        "activity": "GetMaxValueUpdatedDate",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "storedProcedureName": "[dbo].[updateWatermark]",
+                    "storedProcedureParameters": {
+                        "datetime": {
+                            "value": {
+                                "value": "@activity('GetMaxValueUpdatedDate').output.firstRow.lastUpdated",
+                                "type": "Expression"
+                            },
+                            "type": "DateTime"
+                        },
+                        "status": {
+                            "value": "success",
+                            "type": "String"
+                        },
+                        "tablename": {
+                            "value": "appearances",
+                            "type": "String"
+                        }
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "LS_Test_Database",
+                    "type": "LinkedServiceReference"
+                }
+            },
+            {
+                "name": "Truncate_AppearanceS_table",
+                "type": "Script",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "linkedServiceName": {
+                    "referenceName": "LS_Test_Database",
+                    "type": "LinkedServiceReference"
+                },
+                "typeProperties": {
+                    "scripts": [
+                        {
+                            "type": "Query",
+                            "text": "truncate table appearances_S"
+                        }
+                    ],
+                    "scriptBlockExecutionTimeout": "02:00:00"
+                }
+            }
+        ],
+        "annotations": [],
+        "lastPublishTime": "2025-11-12T18:55:40Z"
+    },
+    "type": "Microsoft.DataFactory/factories/pipelines"
+}

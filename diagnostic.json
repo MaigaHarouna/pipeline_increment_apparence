@@ -1,0 +1,23 @@
+{
+    "now": "2025-11-20T19:17:31.769Z",
+    "perfNow": 87421.20000000112,
+    "diagnosticCorrelation": "ed49cf87-88ac-4d2e-8f8a-ef05da5a7e66",
+    "source": "DownloadSupportFiles",
+    "environment": {
+        "productName": "adf",
+        "buildVersion": "1.0.102825.7",
+        "environmentType": 3,
+        "resourceName": "PapusDataFactoryDefault",
+        "resourceRegion": "canadacentral",
+        "resourceGroup": "Default",
+        "subscriptionId": "605d5001-bc80-4cb8-b7ba-4c6e8d33d1a1",
+        "sessionId": "OvDlXxz1z3hzamf08AW/yX",
+        "operationId": "",
+        "gitType": "live",
+        "loggingKey": "d370a7a9-b175-4359-bbb5-ee11be1e57e6"
+    },
+    "additionalInfo": {
+        "selectedResource": "pipeline_incr_apparence",
+        "selectedResourceType": "pipeline"
+    }
+}
